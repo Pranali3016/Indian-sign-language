@@ -1,0 +1,1 @@
+{"actions": ["Alone", "Call", "Flower", "Food", "I am good", "Ok Fine", "Stop", "There is Gun"], "sequence_length": 30, "input_dim": 162, "hidden_dim": 64, "num_classes": 8}

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignBridge AI - Real-Time Sign Recognition</title>
+    <meta name="description" content="Real-time Sign Language Recognition and Translation powered by MediaPipe and Deep Neural Networks.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- MediaPipe Core Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-background">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+        <div class="glow-orb orb-3"></div>
+    </div>
+
+    <!-- Navigation Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i data-lucide="hand-metal"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>SignBridge <span class="badge-ai">HOLISTIC AI</span></h1>
+                    <p class="tagline">Face, Upper-Body & Hands Live Sign Translation</p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <div class="system-status" id="systemStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text" id="statusText">System Ready</span>
+                </div>
+                <button class="btn btn-outline" id="toggleGuideBtn" title="Toggle Gesture Guide">
+                    <i data-lucide="book-open"></i>
+                    <span>Gesture Library</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Left: Live Video & Landmark Canvas -->
+        <section class="viewport-section">
+            <div class="viewport-card glass-panel">
+                <div class="viewport-header">
+                    <div class="viewport-title">
+                        <i data-lucide="video"></i>
+                        <span>Optical Video & Skeleton Feed</span>
+                    </div>
+                    <div class="viewport-meta">
+                        <span class="meta-tag" id="fpsCounter">60 FPS</span>
+                        <span class="meta-tag" id="handCountTag">Tracking: Active</span>
+                        <span class="meta-tag inference-tag" id="inferenceEngineTag">Real-Time AI</span>
+                    </div>
+                </div>
+
+                <div class="camera-wrapper" id="cameraWrapper">
+                    <video id="webcamVideo" autoplay playsinline muted></video>
+                    <canvas id="outputCanvas"></canvas>
+
+                    <!-- Overlay Live Result Pill -->
+                    <div class="live-detection-overlay" id="detectionOverlay">
+                        <div class="overlay-badge">
+                            <span class="overlay-emoji" id="overlayEmoji">👋</span>
+                            <div class="overlay-info">
+                                <span class="overlay-label" id="overlayLabel">Position Upper Body & Hands in Frame</span>
+                                <div class="overlay-confidence-bar">
+                                    <div class="confidence-fill" id="overlayConfidenceFill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <span class="overlay-percent" id="overlayPercent">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Camera Placeholder when stopped -->
+                    <div class="camera-placeholder" id="cameraPlaceholder">
+                        <div class="placeholder-content">
+                            <div class="placeholder-icon">
+                                <i data-lucide="camera"></i>
+                            </div>
+                            <h3>Live Camera Idle</h3>
+                            <p>Click "Start Live Demo" to initialize Face, Body & Hand tracking</p>
+                            <button class="btn btn-primary btn-large" id="startCamBtn">
+                                <i data-lucide="play"></i>
+                                <span>Start Live Demo</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Viewport Control Bar -->
+                <div class="viewport-controls">
+                    <button class="btn btn-primary" id="camToggleBtn">
+                        <i data-lucide="play" id="camToggleIcon"></i>
+                        <span id="camToggleText">Start Camera</span>
+                    </button>
+                    <button class="btn btn-secondary" id="flipCamBtn" title="Mirror/Flip Camera">
+                        <i data-lucide="flip-horizontal"></i>
+                        <span>Flip Cam</span>
+                    </button>
+                    <button class="btn btn-secondary" id="clearBufferBtn" title="Reset Frame Buffer">
+                        <i data-lucide="rotate-ccw"></i>
+                        <span>Reset</span>
+                    </button>
+                    <div class="threshold-control">
+                        <label for="thresholdRange">Sensitivity: <span id="thresholdVal">80%</span></label>
+                        <input type="range" id="thresholdRange" min="50" max="95" value="80" step="5">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Sentence Builder -->
+            <div class="sentence-card glass-panel">
+                <div class="sentence-header">
+                    <div class="sentence-title">
+                        <i data-lucide="message-square-text"></i>
+                        <span>Live Sentence Translation</span>
+                    </div>
+                    <div class="sentence-actions">
+                        <button class="btn-icon" id="ttsBtn" title="Read Aloud (Text-to-Speech)">
+                            <i data-lucide="volume-2"></i>
+                        </button>
+                        <button class="btn-icon" id="copySentenceBtn" title="Copy Translation">
+                            <i data-lucide="copy"></i>
+                        </button>
+                        <button class="btn-icon" id="undoWordBtn" title="Undo Last Word">
+                            <i data-lucide="undo"></i>
+                        </button>
+                        <button class="btn-icon btn-danger" id="clearSentenceBtn" title="Clear Sentence">
+                            <i data-lucide="trash-2"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="sentence-display" id="sentenceDisplay">
+                    <span class="placeholder-text">Perform gestures to construct words & sentences in real-time...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right: Real-time Probabilities & Analytics -->
+        <aside class="sidebar-section">
+            <!-- Probability Distribution Card -->
+            <div class="sidebar-card glass-panel">
+                <div class="sidebar-card-header">
+                    <i data-lucide="bar-chart-3"></i>
+                    <h2>Gesture Probability Radar</h2>
+                </div>
+                <p class="sidebar-subtext">Real-time Softmax distribution across all 8 sign vocabulary classes</p>
+
+                <div class="probabilities-list" id="probabilitiesList">
+                    <!-- Populated via JavaScript dynamically -->
+                </div>
+            </div>
+
+            <!-- Gesture Guide & Library Modal / Section -->
+            <div class="sidebar-card glass-panel" id="gestureGuideCard">
+                <div class="sidebar-card-header">
+                    <i data-lucide="sparkles"></i>
+                    <h2>Vocabulary Guide</h2>
+                </div>
+                <div class="guide-grid" id="guideGrid">
+                    <!-- Populated via JavaScript -->
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Notification Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Custom JavaScript -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

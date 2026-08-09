@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*.ipynb
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Optional raw dataset files (Uncomment if you want to exclude raw .npy recordings from git)
+# Data_Mg/
