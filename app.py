@@ -3,7 +3,7 @@ import json
 import numpy as np
 import torch
 import torch.nn as nn
-from fastapi import FastAPI, Response
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -101,18 +101,46 @@ async def get_actions():
         "features": FEATURE_DIM
     })
 
+def resample_active_window(invariant_seq):
+    """
+    Intelligently extracts the active gesture segment and resamples to 30 frames.
+    Allows instant gesture recognition within 0.2s without waiting for 30 full frames.
+    """
+    hand_energies = np.sum(np.abs(invariant_seq[:, :63]), axis=1) # First 63 are primary hand
+    active_indices = np.where(hand_energies > 0.05)[0]
+
+    if len(active_indices) >= 4:
+        start_i = max(0, active_indices[0] - 1)
+        end_i = min(len(invariant_seq), active_indices[-1] + 2)
+        sliced = invariant_seq[start_i:end_i]
+        
+        if len(sliced) != 30:
+            indices = np.linspace(0, len(sliced) - 1, 30)
+            resampled = []
+            for idx in indices:
+                low = int(np.floor(idx))
+                high = int(np.ceil(idx))
+                w = idx - low
+                resampled.append((1.0 - w) * sliced[low] + w * sliced[high])
+            return np.array(resampled, dtype=np.float32)
+
+    return invariant_seq
+
 @app.post("/api/predict")
 async def predict_sequence(data: SequenceInput):
     m = get_model()
     if m is None:
         return JSONResponse(status_code=503, content={"error": "Model not ready yet."})
 
-    # Convert incoming 225-dim frames into 162-dim Invariant Hand & Elevation space
-    invariant_sequence = [extract_from_225_vector(frame) for frame in data.sequence]
-    seq_arr = np.array(invariant_sequence, dtype=np.float32)
+    # 1. Convert incoming 225-dim frames into 162-dim Invariant Hand & Elevation space
+    invariant_seq = [extract_from_225_vector(frame) for frame in data.sequence]
+    invariant_seq = np.array(invariant_seq, dtype=np.float32)
+
+    # 2. Dynamic Active-Window Temporal Resampling
+    processed_seq = resample_active_window(invariant_seq)
 
     with torch.no_grad():
-        input_tensor = torch.tensor(seq_arr).unsqueeze(0)
+        input_tensor = torch.tensor(processed_seq).unsqueeze(0)
         logits = m(input_tensor)
         probabilities = torch.softmax(logits, dim=1).numpy()[0]
 

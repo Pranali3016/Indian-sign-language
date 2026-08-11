@@ -1,6 +1,6 @@
 /* ==========================================================================
    SignBridge AI - Ultra-Responsive Master Design System
-   Optimized for: Wide-Angle Half-Body Framing, Instant Camera Rendering & 60 FPS
+   Optimized for: Wide-Angle Half-Body Framing, Glowing Skeletons & 60 FPS
    ========================================================================== */
 
 :root {
@@ -295,7 +295,7 @@ body {
     border-color: rgba(0, 242, 254, 0.25);
 }
 
-/* Wide-Angle Camera Video & Canvas Container (Un-Zoomed, Full Framing) */
+/* Wide-Angle Camera Video & Canvas Container */
 .camera-wrapper {
     position: relative;
     width: 100%;
@@ -311,28 +311,27 @@ body {
     justify-content: center;
 }
 
-/* Native Video Element: Displays Instantly in 0.1s */
 #webcamVideo {
-    width: 100%;
-    height: 100%;
-    object-fit: contain; /* Wide-angle uncropped view */
-    display: block;
-    transform: scaleX(-1); /* Default mirrored */
-    background-color: #05070a;
+    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
-/* Transparent Canvas Overlay for Skeletons */
+/* Direct Optical Canvas Rendering with Glowing Skeletons */
 #outputCanvas {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain; /* Perfectly aligns with video */
+    object-fit: contain; /* Wide-angle uncropped view */
     display: block;
     z-index: 10;
-    pointer-events: none;
-    transform: scaleX(-1);
+    transform: scaleX(-1); /* Mirrored natural view */
+    background-color: #05070a;
 }
 
 /* Placeholder */
@@ -820,7 +819,6 @@ body {
    📱 RESPONSIVE BREAKPOINTS (Tablets, iPads, Mobile Phones)
    ========================================================================== */
 
-/* Tablet & iPad Landscape / Portrait (<= 1024px) */
 @media (max-width: 1024px) {
     .main-container {
         grid-template-columns: 1fr;
@@ -838,7 +836,6 @@ body {
     }
 }
 
-/* Medium Tablets & Large Phones (<= 768px) */
 @media (max-width: 768px) {
     .app-header {
         padding: 0.6rem 0.85rem;
@@ -918,7 +915,6 @@ body {
     }
 }
 
-/* Small Mobile Phones (<= 480px, e.g. iPhone SE, Pixel, Samsung) */
 @media (max-width: 480px) {
     .brand-icon {
         width: 34px;

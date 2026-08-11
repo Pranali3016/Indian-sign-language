@@ -1,10 +1,10 @@
 /**
- * SignBridge AI - Ultra-Fast 60 FPS Real-Time Gesture Tracking Engine
- * Performance Optimizations:
- *  - 15ms Fast Tracking Engine (Zero landmark lag, instant hand tracking)
- *  - Frame Dropping Lock (isProcessingFrame prevents queue buildup)
- *  - Lightweight Offscreen Downscaler (Video stays high-res, AI runs at turbo speed)
- *  - Ambidextrous & Distance Invariant 162-D Skeletons
+ * SignBridge AI - High-Performance 60 FPS Gesture & Skeleton Intelligence
+ * Features:
+ *  - Official Hardware-Accelerated Camera Pipeline (Zero lag, instant 60 FPS)
+ *  - High-Contrast Glowing Skeletons (Face Mesh, Body Pose, Left & Right Hands)
+ *  - Universal 162-D Invariant Hand & Elevation Geometry
+ *  - Real-Time Sentence Builder & Text-to-Speech Audio
  */
 
 let ACTIONS = ['Alone', 'Call', 'Flower', 'Food', 'I am good', 'Ok Fine', 'Stop', 'There is Gun'];
@@ -40,27 +40,15 @@ const FACE_KEYPOINTS = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 28
 let isCameraRunning = false;
 let isMirrored = true;
 let currentFacingMode = "user";
-let trackerInstance = null;
-let mediaStream = null;
-let animationFrameId = null;
-
-// High-Speed Concurrency Control
-let isProcessingFrame = false;
+let holisticInstance = null;
+let cameraHelper = null;
 let isPredicting = false;
 let lastPredictTime = 0;
-const PREDICT_INTERVAL_MS = 90; // Fast 11 inferences/sec
-
-// Offscreen Downscaler Canvas for 15ms AI Processing
-const offscreenCanvas = document.createElement('canvas');
-const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
-const AI_PROCESS_WIDTH = 360;
-const AI_PROCESS_HEIGHT = 270;
-offscreenCanvas.width = AI_PROCESS_WIDTH;
-offscreenCanvas.height = AI_PROCESS_HEIGHT;
+const PREDICT_INTERVAL_MS = 100; // 10 inferences/sec
 
 let sequenceBuffer = [];
 const SEQUENCE_LENGTH = 30;
-let confidenceThreshold = 0.70;
+let confidenceThreshold = 0.65;
 let constructedSentence = [];
 let lastAddedAction = null;
 let lastActionTimestamp = 0;
@@ -70,7 +58,7 @@ let fpsTimer = performance.now();
 // DOM Elements
 const videoEl = document.getElementById('webcamVideo');
 const canvasEl = document.getElementById('outputCanvas');
-const canvasCtx = canvasEl.getContext('2d', { alpha: true });
+const canvasCtx = canvasEl.getContext('2d', { alpha: false });
 const cameraPlaceholder = document.getElementById('cameraPlaceholder');
 const startCamBtn = document.getElementById('startCamBtn');
 const camToggleBtn = document.getElementById('camToggleBtn');
@@ -122,30 +110,7 @@ function showToast(message, icon = "info") {
     }, 2200);
 }
 
-// Background Pre-Warming
-function prewarmMediaPipeEngine() {
-    if (typeof Holistic !== 'undefined') {
-        try {
-            trackerInstance = new Holistic({
-                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/${file}`
-            });
-            trackerInstance.setOptions({
-                modelComplexity: 0,
-                smoothLandmarks: true,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-            trackerInstance.onResults(onHolisticResults);
-            statusText.textContent = "AI Engine Ready (Turbo)";
-        } catch (e) {
-            console.warn("Pre-warm fallback:", e);
-        }
-    }
-}
-
 async function initializeApp() {
-    prewarmMediaPipeEngine();
-
     try {
         const response = await fetch('/api/actions');
         if (response.ok) {
@@ -161,6 +126,29 @@ async function initializeApp() {
     renderGestureGuide();
     setupEventListeners();
     refreshIcons();
+
+    // Initialize MediaPipe Holistic Engine immediately
+    initializeHolisticTracker();
+}
+
+function initializeHolisticTracker() {
+    if (typeof Holistic !== 'undefined') {
+        try {
+            holisticInstance = new Holistic({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/${file}`
+            });
+            holisticInstance.setOptions({
+                modelComplexity: 0, // Turbo fast mobile mode
+                smoothLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            holisticInstance.onResults(onHolisticResults);
+            statusText.textContent = "AI Engine Loaded (60 FPS)";
+        } catch (err) {
+            console.error("Holistic init error:", err);
+        }
+    }
 }
 
 function renderProbabilitiesList() {
@@ -209,9 +197,7 @@ function setupEventListeners() {
 
     flipCamBtn.addEventListener('click', () => {
         isMirrored = !isMirrored;
-        const transformStyle = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
-        videoEl.style.transform = transformStyle;
-        canvasEl.style.transform = transformStyle;
+        canvasEl.style.transform = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
         showToast(isMirrored ? "Camera Mirrored" : "Camera Normal", "flip-horizontal");
     });
 
@@ -219,9 +205,7 @@ function setupEventListeners() {
         switchCamBtn.addEventListener('click', async () => {
             currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
             isMirrored = (currentFacingMode === "user");
-            const transformStyle = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
-            videoEl.style.transform = transformStyle;
-            canvasEl.style.transform = transformStyle;
+            canvasEl.style.transform = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
             if (isCameraRunning) {
                 stopCamera();
                 await startCamera();
@@ -268,41 +252,35 @@ async function toggleCamera() {
 
 async function startCamera() {
     try {
-        statusText.textContent = "Opening Camera...";
+        statusText.textContent = "Starting Live Camera...";
         cameraPlaceholder.classList.add('hidden');
 
-        // Optimal 480p-720p constraints for instant zero-lag capture
-        const constraints = {
-            video: {
-                width: { ideal: 640, max: 1280 },
-                height: { ideal: 480, max: 720 },
-                facingMode: { ideal: currentFacingMode }
-            },
-            audio: false
-        };
+        if (!holisticInstance) {
+            initializeHolisticTracker();
+        }
 
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        videoEl.srcObject = mediaStream;
-        await videoEl.play();
-
-        const vWidth = videoEl.videoWidth || 640;
-        const vHeight = videoEl.videoHeight || 480;
-        canvasEl.width = vWidth;
-        canvasEl.height = vHeight;
-
-        if (!trackerInstance) {
-            if (typeof Holistic !== 'undefined') {
-                trackerInstance = new Holistic({
-                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/${file}`
-                });
-                trackerInstance.setOptions({
-                    modelComplexity: 0,
-                    smoothLandmarks: true,
-                    minDetectionConfidence: 0.5,
-                    minTrackingConfidence: 0.5
-                });
-                trackerInstance.onResults(onHolisticResults);
-            }
+        // Use Google's official Camera helper for hardware-accelerated stream
+        if (typeof Camera !== 'undefined') {
+            cameraHelper = new Camera(videoEl, {
+                onFrame: async () => {
+                    if (isCameraRunning && holisticInstance) {
+                        await holisticInstance.send({ image: videoEl });
+                    }
+                },
+                width: 640,
+                height: 480,
+                facingMode: currentFacingMode
+            });
+            await cameraHelper.start();
+        } else {
+            // Native fallback
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: currentFacingMode },
+                audio: false
+            });
+            videoEl.srcObject = stream;
+            await videoEl.play();
+            requestAnimationFrame(fallbackLoop);
         }
 
         isCameraRunning = true;
@@ -311,46 +289,36 @@ async function startCamera() {
         camToggleBtn.classList.remove('btn-primary');
         camToggleBtn.classList.add('btn-secondary');
         statusText.textContent = "Live Recognition Active (60 FPS)";
-        showToast("Live AI Tracking Active", "sparkles");
+        showToast("Optical Skeleton Tracking Active", "sparkles");
         refreshIcons();
 
-        processFrameLoop();
-
     } catch (err) {
-        console.error("Camera startup error:", err);
+        console.error("Camera start error:", err);
         cameraPlaceholder.classList.remove('hidden');
         statusText.textContent = "Camera Error";
         showToast("Camera error: " + err.message, "alert-circle");
     }
 }
 
-// Zero-Lag Non-Blocking Frame Loop
-async function processFrameLoop() {
+async function fallbackLoop() {
     if (!isCameraRunning) return;
-
-    if (videoEl.readyState >= 2 && trackerInstance && !isProcessingFrame) {
-        isProcessingFrame = true;
+    if (videoEl.readyState >= 2 && holisticInstance) {
         try {
-            // Draw into 360p offscreen canvas for 15ms lightning-fast AI tracking
-            offscreenCtx.drawImage(videoEl, 0, 0, AI_PROCESS_WIDTH, AI_PROCESS_HEIGHT);
-            await trackerInstance.send({ image: offscreenCanvas });
-        } catch (e) {
-            // Frame skip
-        } finally {
-            isProcessingFrame = false;
-        }
+            await holisticInstance.send({ image: videoEl });
+        } catch (e) {}
     }
-
-    animationFrameId = requestAnimationFrame(processFrameLoop);
+    requestAnimationFrame(fallbackLoop);
 }
 
 function stopCamera() {
     isCameraRunning = false;
-    if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+    if (cameraHelper) {
+        try { cameraHelper.stop(); } catch (e) {}
+        cameraHelper = null;
     }
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
+    if (videoEl.srcObject) {
+        videoEl.srcObject.getTracks().forEach(track => track.stop());
+        videoEl.srcObject = null;
     }
     cameraPlaceholder.classList.remove('hidden');
     camToggleText.textContent = "Start Live Demo";
@@ -367,50 +335,62 @@ function stopCamera() {
 function drawSkeletalLines(ctx, landmarks, pairs, color, lineWidth, w, h) {
     if (!landmarks || !landmarks.length) return;
 
+    ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = lineWidth;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
     ctx.beginPath();
 
     for (let i = 0; i < pairs.length; i++) {
         const p1 = landmarks[pairs[i][0]];
         const p2 = landmarks[pairs[i][1]];
-        if (p1 && p2 && (p1.visibility === undefined || p1.visibility > 0.1) && (p2.visibility === undefined || p2.visibility > 0.1)) {
+        if (p1 && p2 && (p1.visibility === undefined || p1.visibility > 0.15) && (p2.visibility === undefined || p2.visibility > 0.15)) {
             ctx.moveTo(p1.x * w, p1.y * h);
             ctx.lineTo(p2.x * w, p2.y * h);
         }
     }
     ctx.stroke();
+    ctx.restore();
 }
 
 function drawJointDots(ctx, landmarks, strokeColor, fillColor, radius, w, h) {
     if (!landmarks || !landmarks.length) return;
 
+    ctx.save();
     ctx.fillStyle = fillColor;
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = 1.5;
+    ctx.shadowColor = strokeColor;
+    ctx.shadowBlur = 6;
 
     for (let i = 0; i < landmarks.length; i++) {
         const p = landmarks[i];
-        if (p && (p.visibility === undefined || p.visibility > 0.1)) {
+        if (p && (p.visibility === undefined || p.visibility > 0.15)) {
             ctx.beginPath();
             ctx.arc(p.x * w, p.y * h, radius, 0, 2 * Math.PI);
             ctx.fill();
             ctx.stroke();
         }
     }
+    ctx.restore();
 }
 
-// MediaPipe Frame Callback (Draws Skeletons Instantly in Sync with Video)
+// MediaPipe Holistic Frame Callback (Direct Optical Render with Glowing Skeletons)
 function onHolisticResults(results) {
     if (!isCameraRunning) return;
 
-    const w = canvasEl.width;
-    const h = canvasEl.height;
+    const w = canvasEl.width = videoEl.videoWidth || 640;
+    const h = canvasEl.height = videoEl.videoHeight || 480;
 
-    // Clear transparent overlay
-    canvasCtx.clearRect(0, 0, w, h);
+    // 1. Draw Direct Video Stream onto Canvas
+    if (results.image) {
+        canvasCtx.drawImage(results.image, 0, 0, w, h);
+    } else {
+        canvasCtx.drawImage(videoEl, 0, 0, w, h);
+    }
 
     // FPS Meter
     frameCount++;
@@ -422,44 +402,48 @@ function onHolisticResults(results) {
         fpsTimer = now;
     }
 
-    // 1. Draw Face Mesh Points (Soft Cyan Dots)
+    // 2. Draw Face Mesh Points (Vibrant Soft Cyan Glow)
     if (results.faceLandmarks && results.faceLandmarks.length > 0) {
-        canvasCtx.fillStyle = 'rgba(0, 242, 254, 0.55)';
+        canvasCtx.save();
+        canvasCtx.fillStyle = 'rgba(0, 242, 254, 0.7)';
+        canvasCtx.shadowColor = '#00f2fe';
+        canvasCtx.shadowBlur = 4;
         for (let i = 0; i < FACE_KEYPOINTS.length; i++) {
             const pt = results.faceLandmarks[FACE_KEYPOINTS[i]];
             if (pt) {
                 canvasCtx.beginPath();
-                canvasCtx.arc(pt.x * w, pt.y * h, 2, 0, 2 * Math.PI);
+                canvasCtx.arc(pt.x * w, pt.y * h, 2.5, 0, 2 * Math.PI);
                 canvasCtx.fill();
             }
         }
+        canvasCtx.restore();
     }
 
-    // 2. Draw Upper Body Pose Skeleton (Electric Blue)
+    // 3. Draw Upper Body Pose Skeleton (Electric Blue)
     if (results.poseLandmarks) {
-        drawSkeletalLines(canvasCtx, results.poseLandmarks, POSE_PAIRS, '#00f2fe', 3.5, w, h);
-        drawJointDots(canvasCtx, results.poseLandmarks, '#00f2fe', '#ffffff', 4, w, h);
+        drawSkeletalLines(canvasCtx, results.poseLandmarks, POSE_PAIRS, '#00d2ff', 4, w, h);
+        drawJointDots(canvasCtx, results.poseLandmarks, '#00d2ff', '#ffffff', 4.5, w, h);
     }
 
     let numHands = 0;
 
-    // 3. Draw Left Hand (Neon Magenta)
+    // 4. Draw Left Hand (Neon Magenta)
     if (results.leftHandLandmarks) {
         numHands++;
-        drawSkeletalLines(canvasCtx, results.leftHandLandmarks, HAND_PAIRS, '#ff007a', 3, w, h);
-        drawJointDots(canvasCtx, results.leftHandLandmarks, '#ff007a', '#ffffff', 3.5, w, h);
+        drawSkeletalLines(canvasCtx, results.leftHandLandmarks, HAND_PAIRS, '#ff007a', 3.5, w, h);
+        drawJointDots(canvasCtx, results.leftHandLandmarks, '#ff007a', '#ffffff', 4, w, h);
     }
 
-    // 4. Draw Right Hand (Emerald Green)
+    // 5. Draw Right Hand (Emerald Neon Green)
     if (results.rightHandLandmarks) {
         numHands++;
-        drawSkeletalLines(canvasCtx, results.rightHandLandmarks, HAND_PAIRS, '#10b981', 3, w, h);
-        drawJointDots(canvasCtx, results.rightHandLandmarks, '#10b981', '#ffffff', 3.5, w, h);
+        drawSkeletalLines(canvasCtx, results.rightHandLandmarks, HAND_PAIRS, '#10b981', 3.5, w, h);
+        drawJointDots(canvasCtx, results.rightHandLandmarks, '#10b981', '#ffffff', 4, w, h);
     }
 
-    handCountTag.textContent = `Tracking: ${numHands} Hands`;
+    handCountTag.textContent = `Tracking: ${numHands} Hands + Body`;
 
-    // 5. Extract Invariant Coordinates
+    // 6. Extract Invariant Coordinates
     const frameFeatures = extractRawHolistic(results);
     sequenceBuffer.push(frameFeatures);
 
@@ -467,7 +451,7 @@ function onHolisticResults(results) {
         sequenceBuffer.shift();
     }
 
-    // 6. Throttled Non-Blocking Predict
+    // 7. Throttled Real-Time Predict
     if (sequenceBuffer.length === SEQUENCE_LENGTH && !isPredicting && (now - lastPredictTime > PREDICT_INTERVAL_MS)) {
         lastPredictTime = now;
         predictSequenceAsync(sequenceBuffer);
@@ -544,7 +528,7 @@ function handlePredictionResult(action, confidence, probabilities) {
     if (confidence >= confidenceThreshold) {
         updateOverlay(action, confidence);
         const now = Date.now();
-        if (action !== lastAddedAction || (now - lastActionTimestamp > 2500)) {
+        if (action !== lastAddedAction || (now - lastActionTimestamp > 2200)) {
             addWordToSentence(action);
             lastAddedAction = action;
             lastActionTimestamp = now;
