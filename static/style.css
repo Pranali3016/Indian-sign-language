@@ -1,6 +1,6 @@
 /* ==========================================================================
    SignBridge AI - Ultra-Responsive Master Design System
-   Optimized for: Mobile Phones (iOS/Android), Tablets, Laptops & Desktops
+   Optimized for: Wide-Angle Half-Body Framing, Instant Camera Rendering & 60 FPS
    ========================================================================== */
 
 :root {
@@ -295,38 +295,44 @@ body {
     border-color: rgba(0, 242, 254, 0.25);
 }
 
-/* Camera Video & Canvas Container */
+/* Wide-Angle Camera Video & Canvas Container (Un-Zoomed, Full Framing) */
 .camera-wrapper {
     position: relative;
     width: 100%;
     aspect-ratio: 4 / 3;
     max-height: 520px;
     border-radius: var(--radius-md);
-    background-color: #000;
+    background-color: #05070a;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
+/* Native Video Element: Displays Instantly in 0.1s */
 #webcamVideo {
-    display: none;
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Wide-angle uncropped view */
+    display: block;
+    transform: scaleX(-1); /* Default mirrored */
+    background-color: #05070a;
 }
 
+/* Transparent Canvas Overlay for Skeletons */
 #outputCanvas {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain; /* Perfectly aligns with video */
     display: block;
-    z-index: 5;
-    transform: scaleX(-1); /* Default mirrored */
+    z-index: 10;
+    pointer-events: none;
+    transform: scaleX(-1);
 }
 
 /* Placeholder */
@@ -843,7 +849,7 @@ body {
     }
 
     .tagline {
-        display: none; /* Hide tagline on mobile to keep header clean */
+        display: none;
     }
 
     .system-status {
@@ -852,7 +858,7 @@ body {
     }
 
     #toggleGuideBtn span {
-        display: none; /* Hide button text on mobile, keep icon */
+        display: none;
     }
 
     #toggleGuideBtn {
@@ -874,7 +880,7 @@ body {
 
     .camera-wrapper {
         aspect-ratio: 4 / 3;
-        max-height: 380px;
+        max-height: 400px;
     }
 
     .viewport-controls {
@@ -884,7 +890,7 @@ body {
     }
 
     .viewport-controls #camToggleBtn {
-        grid-column: span 2; /* Primary action full-width */
+        grid-column: span 2;
         padding: 0.7rem;
         font-size: 0.9rem;
     }
@@ -939,12 +945,12 @@ body {
     }
 
     .viewport-meta .inference-tag {
-        display: none; /* Keep meta clean on small screens */
+        display: none;
     }
 
     .camera-wrapper {
         aspect-ratio: 4 / 3;
-        max-height: 300px;
+        max-height: 340px;
     }
 
     .overlay-badge {
@@ -976,6 +982,6 @@ body {
     }
 
     .guide-grid {
-        grid-template-columns: 1fr; /* Single column on compact screens */
+        grid-template-columns: 1fr;
     }
 }
