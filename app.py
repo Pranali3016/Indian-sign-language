@@ -3,7 +3,7 @@ import json
 import numpy as np
 import torch
 import torch.nn as nn
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,22 +80,26 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 class SequenceInput(BaseModel):
     sequence: List[List[float]]
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def serve_home():
     template_path = os.path.join("templates", "index.html")
     if os.path.exists(template_path):
         with open(template_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Sign Language Web App Loading...</h1>")
+            return HTMLResponse(content=f.read(), status_code=200)
+    return HTMLResponse(content="<h1>SignBridge AI Live</h1>", status_code=200)
 
-@app.get("/api/actions")
+@app.api_route("/health", methods=["GET", "HEAD"])
+async def health_check():
+    return JSONResponse(status_code=200, content={"status": "healthy", "service": "SignBridge AI"})
+
+@app.api_route("/api/actions", methods=["GET", "HEAD"])
 async def get_actions():
-    return {
+    return JSONResponse(status_code=200, content={
         "actions": ACTIONS,
         "details": ACTION_INFO,
         "sequence_length": 30,
         "features": FEATURE_DIM
-    }
+    })
 
 @app.post("/api/predict")
 async def predict_sequence(data: SequenceInput):
