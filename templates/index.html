@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SignBridge AI - Real-Time Sign Recognition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SignBridge AI - Real-Time Sign Language Recognition</title>
     <meta name="description" content="Real-time Sign Language Recognition and Translation powered by MediaPipe and Deep Neural Networks.">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,7 +37,7 @@
                     <i data-lucide="hand-metal"></i>
                 </div>
                 <div class="brand-text">
-                    <h1>SignBridge <span class="badge-ai">HOLISTIC AI</span></h1>
+                    <h1>SignBridge <span class="badge-ai">AI</span></h1>
                     <p class="tagline">Face, Upper-Body & Hands Live Sign Translation</p>
                 </div>
             </div>
@@ -47,9 +47,9 @@
                     <span class="status-dot"></span>
                     <span class="status-text" id="statusText">System Ready</span>
                 </div>
-                <button class="btn btn-outline" id="toggleGuideBtn" title="Toggle Gesture Guide">
+                <button class="btn btn-outline" id="toggleGuideBtn" title="View Gesture Library">
                     <i data-lucide="book-open"></i>
-                    <span>Gesture Library</span>
+                    <span>Library</span>
                 </button>
             </div>
         </div>
@@ -63,7 +63,7 @@
                 <div class="viewport-header">
                     <div class="viewport-title">
                         <i data-lucide="video"></i>
-                        <span>Optical Video & Skeleton Feed</span>
+                        <span>Optical Video Feed</span>
                     </div>
                     <div class="viewport-meta">
                         <span class="meta-tag" id="fpsCounter">60 FPS</span>
@@ -114,15 +114,19 @@
                     </button>
                     <button class="btn btn-secondary" id="flipCamBtn" title="Mirror/Flip Camera">
                         <i data-lucide="flip-horizontal"></i>
-                        <span>Flip Cam</span>
+                        <span>Mirror</span>
+                    </button>
+                    <button class="btn btn-secondary" id="switchCamBtn" title="Switch Front/Back Camera (Mobile)">
+                        <i data-lucide="switch-camera"></i>
+                        <span>Switch</span>
                     </button>
                     <button class="btn btn-secondary" id="clearBufferBtn" title="Reset Frame Buffer">
                         <i data-lucide="rotate-ccw"></i>
                         <span>Reset</span>
                     </button>
                     <div class="threshold-control">
-                        <label for="thresholdRange">Sensitivity: <span id="thresholdVal">80%</span></label>
-                        <input type="range" id="thresholdRange" min="50" max="95" value="80" step="5">
+                        <label for="thresholdRange">Sensitivity: <span id="thresholdVal">70%</span></label>
+                        <input type="range" id="thresholdRange" min="50" max="95" value="70" step="5">
                     </div>
                 </div>
             </div>
@@ -170,7 +174,7 @@
                 </div>
             </div>
 
-            <!-- Gesture Guide & Library Modal / Section -->
+            <!-- Gesture Guide & Library Card -->
             <div class="sidebar-card glass-panel" id="gestureGuideCard">
                 <div class="sidebar-card-header">
                     <i data-lucide="sparkles"></i>

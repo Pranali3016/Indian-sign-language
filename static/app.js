@@ -1,6 +1,6 @@
 /**
  * SignBridge AI - High-Precision Real-Time Gesture & Skeleton Engine
- * Perfectly Aligned Raw MediaPipe Pipeline + Server-Side Invariant Normalization
+ * Responsive Mobile Support + Front/Back Camera Switching + Invariant Pipeline
  */
 
 let ACTIONS = ['Alone', 'Call', 'Flower', 'Food', 'I am good', 'Ok Fine', 'Stop', 'There is Gun'];
@@ -35,6 +35,7 @@ const FACE_KEYPOINTS = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 28
 
 let isCameraRunning = false;
 let isMirrored = true;
+let currentFacingMode = "user"; // 'user' (front) or 'environment' (back)
 let trackerInstance = null;
 let mediaStream = null;
 let animationFrameId = null;
@@ -61,7 +62,9 @@ const camToggleBtn = document.getElementById('camToggleBtn');
 const camToggleIcon = document.getElementById('camToggleIcon');
 const camToggleText = document.getElementById('camToggleText');
 const flipCamBtn = document.getElementById('flipCamBtn');
+const switchCamBtn = document.getElementById('switchCamBtn');
 const clearBufferBtn = document.getElementById('clearBufferBtn');
+const toggleGuideBtn = document.getElementById('toggleGuideBtn');
 const thresholdRange = document.getElementById('thresholdRange');
 const thresholdVal = document.getElementById('thresholdVal');
 
@@ -172,6 +175,30 @@ function setupEventListeners() {
         showToast(isMirrored ? "Camera Mirrored" : "Camera Normal", "flip-horizontal");
     });
 
+    if (switchCamBtn) {
+        switchCamBtn.addEventListener('click', async () => {
+            currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+            isMirrored = (currentFacingMode === "user");
+            canvasEl.style.transform = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
+            if (isCameraRunning) {
+                stopCamera();
+                await startCamera();
+            }
+            showToast(`Camera: ${currentFacingMode === 'user' ? 'Front (Selfie)' : 'Back (Rear)'}`, "switch-camera");
+        });
+    }
+
+    if (toggleGuideBtn) {
+        toggleGuideBtn.addEventListener('click', () => {
+            const guideEl = document.getElementById('gestureGuideCard');
+            if (guideEl) {
+                guideEl.scrollIntoView({ behavior: 'smooth' });
+                guideEl.style.borderColor = 'var(--accent-cyan)';
+                setTimeout(() => guideEl.style.borderColor = '', 1500);
+            }
+        });
+    }
+
     clearBufferBtn.addEventListener('click', () => {
         sequenceBuffer = [];
         updateOverlay(null, 0);
@@ -206,7 +233,7 @@ async function startCamera() {
             video: {
                 width: { ideal: 640 },
                 height: { ideal: 480 },
-                facingMode: "user"
+                facingMode: currentFacingMode
             },
             audio: false
         });
@@ -249,7 +276,7 @@ async function startCamera() {
         camToggleBtn.classList.remove('btn-primary');
         camToggleBtn.classList.add('btn-secondary');
         statusText.textContent = "Live Recognition Active (30 FPS)";
-        showToast("Synchronized Holistic Engine Active", "sparkles");
+        showToast("Live AI Tracking Active", "sparkles");
         refreshIcons();
 
         processFrameLoop();
@@ -391,7 +418,7 @@ function onHolisticResults(results) {
         drawJointDots(canvasCtx, results.rightHandLandmarks, '#10b981', '#ffffff', 3.5, w, h);
     }
 
-    handCountTag.textContent = `Tracking: ${numHands} Hands + Face + Body`;
+    handCountTag.textContent = `Tracking: ${numHands} Hands`;
 
     // 6. Extract Raw Coordinates (Flipped x for OpenCV parity)
     const frameFeatures = extractRawHolistic(results);
